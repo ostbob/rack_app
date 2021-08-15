@@ -1,56 +1,31 @@
-class App
+require_relative 'time_formatter'
 
-  FORMATS = {
-    year: '%Y',
-    month: '%m',
-    day: '%d',
-    hour: '%H',
-    minute: '%M',
-    second: '%S'
-  }
+class App
 
   def call(env)
     req = Rack::Request.new(env)
 
-    @known_formats = []
-    @unknown_formats = []
-
     if req.get? && req.path == '/time' && req.params['format'] != nil
-      req.params['format'].split(',').each do |format|
-        if FORMATS.key?(format.to_sym)
-          @known_formats << FORMATS[format.to_sym]
-        else
-          @unknown_formats << format
-        end
-      end
+      time_formatter = TimeFormatter.new(req.params['format'])
 
-      if @unknown_formats.any?
-        response_400
+      if time_formatter.unknown_formats.any?
+        response(400, 'Unknown time format [' + time_formatter.unknown_string + ']')
       else
-        response_200
+        response(200, Time.now.strftime(time_formatter.known_string))
       end
     else
-      response_404
+      response(404, '404 ERROR!\n')
     end
-
-    [@status, {'Content-Type' => 'text/plain'}, [@body]]
   end
 
   private
 
-  def response_404
-    @status = 404
-    @body = '404 ERROR!\n'
+  def response(status, body)
+    response = Rack::Response.new(
+      [body],
+      status,
+      {'Content-Type' => 'text/plain'}
+    )
+    response.finish
   end
-
-  def response_200
-    @status = 200
-    @body = Time.now.strftime(@known_formats.join('-'))
-  end
-
-  def response_400
-    @status = 400
-    @body = 'Unknown time format [' + @unknown_formats.join(',') + ']'
-  end
-
 end
